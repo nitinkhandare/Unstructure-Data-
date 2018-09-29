@@ -1,0 +1,83 @@
+---
+title: "TopicModeling"
+author: "Nitin Khandare"
+date: "September 14, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readxl)
+library(tm)
+library(tidytext)
+library(plyr)
+library(topicmodels)
+
+tweet = read_excel("E:/Term 3/Unstructure Data/Amazon.xlsx")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+tweet = gsub("[^A-Za-z///']", " ", tweet$reviews.text)
+
+doc = VCorpus(VectorSource(tweet))
+
+doc = tm_map(doc, removeNumbers)
+
+doc = tm_map(doc, content_transformer(tolower))
+
+doc = tm_map(doc, removePunctuation)
+
+doc = tm_map(doc, removeWords, stopwords("english"))
+
+doc = tm_map(doc, stripWhitespace)
+
+dtm = DocumentTermMatrix(doc)
+
+dim(dtm)
+
+
+```
+
+```{r}
+
+rowTotal = apply(dtm, 1, sum)
+dtm.new = dtm[rowTotal>0,]
+
+dim(dtm.new)
+
+
+unique_index = unique(dtm$i)
+```
+
+### Topic modelling using LDA model
+```{r}
+lda = LDA(dtm.new, k = 4, method = "Gibbs", control = list(seed = 1234))
+
+## using tidy library to see the top 10 word of each topic
+topics = tidy(lda, matrix = 'beta')
+
+
+```
+
+```{r}
+library(dplyr)
+top_term = topics %>% group_by(topic) %>% top_n(10, beta) %>% ungroup() %>% arrange(term, -beta)
+```
+
+```{r}
+library(ggplot2)
+
+top_term %>% mutate(term = reorder(term, beta)) %>% ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) + facet_wrap(~topic, scales = 'free') + coord_flip()
+```
+
+```{r}
+
+```
+```{r}
+library(ggplot2)
+top_term %>% mutate(term = reorder(term, beta)) %>% ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = T) + facet_wrap(~topic, scales = 'free') + coord_flip()
+```
+

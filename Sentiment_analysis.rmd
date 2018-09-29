@@ -1,0 +1,200 @@
+---
+title: "SentimentAnalysis"
+author: "Nitin Khandare"
+date: "September 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidytext)
+library(plyr)
+library(plyr)
+library(stringr)
+library(readxl)
+
+tweet = read_excel("E:/Term 3/Unstructure Data/Amazon.xlsx")
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+list = get_sentiments(lexicon = 'bing')
+```
+
+```{r}
+list1 = get_sentiments(lexicon = 'nrc')
+```
+
+```{r}
+list2 = get_sentiments(lexicon = 'afinn')
+```
+
+### import the text file containing positive and negative words
+```{r}
+list3 = get_sentiments("bing")
+```
+
+```{r}
+neg_words =  filter(list3, sentiment == 'negative') 
+
+neg_words = c(neg_words, "wtf", "suck","bad","kickass","wth","shitty","horrible","worse","back","ugly","freaking","no")
+
+pos_words = filter(list, sentiment == 'positive')
+
+pos_words = c(pos_words, "good","nice","horizone","fine")
+
+
+
+```
+
+
+
+```{r}
+score.sentiment = function(tweets, pos.words, neg.words)
+  
+{
+  
+  require(plyr)
+  require(stringr)
+  
+  scores = laply(tweets, function(tweet, pos.words, neg.words) {
+    
+    tweet = gsub('https://','',tweet) # removes https://
+    tweet = gsub('http://','',tweet) # removes http://
+    tweet = gsub('[^[:graph:]]', ' ',tweet) ## removes graphic characters like emoticons 
+    tweet = gsub('[[:punct:]]', '', tweet) # removes punctuation 
+    tweet = gsub('[[:cntrl:]]', '', tweet) # removes control characters
+    tweet = gsub('\\d+', '', tweet) # removes numbers
+    tweet = tolower(tweet) # makes all letters lowercase
+    
+    word.list = str_split(tweet, '\\s+') # splits the tweets by word in a list
+    
+    words = unlist(word.list) # turns the list into vector
+    
+    pos.matches = match(words, pos.words) ## returns matching values for words from list 
+    neg.matches = match(words, neg.words)
+    
+    pos.matches = !is.na(pos.matches) ## converts matching values to true of false
+    neg.matches = !is.na(neg.matches)
+    
+    score = sum(pos.matches) - sum(neg.matches) # true and false are treated as 1 and 0 so they can be added
+    
+    return(score)
+    
+  }, pos.words, neg.words )
+  
+  scores.df = data.frame(score=scores, text=tweets)
+  
+  return(scores.df)
+  
+}
+
+```
+
+
+```{r}
+
+analysis = score.sentiment(tweet$reviews.text, pos_words,neg_words)
+
+
+table(analysis$score)
+
+hist(analysis$score)
+```
+
+
+```{r}
+scores = analysis$score
+
+tweet = cbind(tweet,scores)
+
+tweet$polarity = ifelse(tweet$scores< 0, "negative", ifelse(tweet$scores > 0 ,"positive","netural"))
+
+tweet$polarity = as.factor(tweet$polarity )
+
+```
+
+
+```{r}
+library(e1071)
+library(tm)
+```
+
+```{r}
+model_tweet = select(tweet, reviews.text, polarity)
+
+doc = VCorpus(VectorSource(model_tweet$reviews.text))
+
+doc = tm_map(doc, removeNumbers)
+
+doc = tm_map(doc, content_transformer(tolower))
+
+doc = tm_map(doc, removePunctuation)
+
+doc = tm_map(doc, removeWords, stopwords(kind = "english"))
+
+doc = tm_map(doc, stripWhitespace)
+
+dtm = DocumentTermMatrix(doc)
+
+dtm = removeSparseTerms(dtm, sparse = .97)
+
+mat = as.matrix(dtm)
+
+mat1 = as.data.frame(mat)
+
+polarity = model_tweet[,2]
+
+new_data = cbind(mat1,polarity)
+
+
+```
+
+
+### sampling the Data
+```{r}
+
+train = new_data[sample(seq(1,nrow(new_data)),(0.7*nrow(new_data))),]
+
+test = new_data[sample(seq(1,nrow(new_data)),(0.3*nrow(new_data))),]
+
+```
+
+
+```{r}
+
+train$polarity = as.factor(train$polarity)
+
+model = naiveBayes(train$polarity ~., data = train)
+
+predi = predict(model, test)
+
+confusionMatrix(predi, test$polarity, positive = "1")
+```
+
+```{r}
+library(rpart)
+train$polarity = as.factor(train$polarity)
+test$polarity = as.factor(test$polarity)
+
+model.tree = rpart(polarity ~., data = train)
+
+pred = predict(model.tree, test, type = "class")
+
+test$pred = as.factor(test$pred)
+
+mean(test$polarity == pred)
+```
+
+## overfitted SVM model on Data
+```{r}
+svm.model <- svm(polarity ~ ., data = train, kernel = "radial", cost = 3, gamma = 0.1)
+
+
+svm.predict <- predict(svm.model, test)
+
+confusionMatrix(test$polarity, svm.predict)
+
+
+```
+

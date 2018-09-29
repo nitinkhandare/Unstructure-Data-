@@ -1,0 +1,66 @@
+---
+title: "TidyText_Analysis"
+author: "Nitin Khandare"
+date: "September 6, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidytext)
+library(readxl)
+
+review = read_excel("E:/Term 3/Unstructure Data/Amazon.xlsx")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+token_text = review %>% select(reviews.text) %>% unnest_tokens(word, reviews.text)
+
+dim(token_text)
+
+token_text %>% filter(word == 'the') %>% nrow()
+```
+
+```{r}
+token_text = token_text %>% anti_join(stop_words)
+
+dim(token_text)
+```
+```{r}
+word_count = token_text %>% count(word, sort = TRUE) %>% mutate(word = reorder(word,n))
+```
+
+```{r}
+
+bigram_token_text = review %>% select(reviews.text) %>% unnest_tokens(word, reviews.text, token = 'ngrams', n = 2) %>% anti_join(stop_words) %>% count(word, sort = T) %>% mutate(word = reorder(word,n))
+
+```
+
+```{r}
+bigram_token_text_separate = bigram_token_text %>% separate(word,c("word1","word2"), sep = " ")
+```
+
+```{r}
+New_bigram = bigram_token_text_separate %>% filter(!word1 %in% stop_words$word) %>% filter(!word2 %in% stop_words$word)
+```
+
+```{r}
+bigram_token_text1 = review %>% 
+  select(reviews.text) %>% 
+  unnest_tokens(word, reviews.text, token = 'ngrams', n=2) %>% 
+  separate(word, c("word1","word2"),sep = " ") %>% 
+  filter(!word1 %in% stop_words$word) %>% 
+  count(word, sort = T) %>% 
+  mutate(word = reorder(word,n))
+```
+
+
+```{r}
+review %>% filter(reviews.username == 'Cristina M', weight == "205 grams")
+```
+
+```{r}
+
+```
+

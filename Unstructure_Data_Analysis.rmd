@@ -1,0 +1,31 @@
+---
+title: "Unstructure_Data_Analysis"
+author: "Nitin Khandare"
+date: "September 7, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(networkD3)
+
+subscribers = read.csv("C:/Users/Administrator/Downloads/PythonCaseStudy/github_subscribers.csv")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+df = data.frame(
+  target = c("Nitin"),
+  source = c('x','y','z',23,43))
+
+simpleNetwork(df)
+```
+
+```{r}
+
+simpleNetwork(Data = subscribers,
+              Source = 'subscriber_name',
+              Target = 'repo_id')
+
+
+```
+
