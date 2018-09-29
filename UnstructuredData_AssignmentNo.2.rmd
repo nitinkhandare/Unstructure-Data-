@@ -1,0 +1,201 @@
+---
+title: "UDA_AssignmentNo-2"
+author: "Nitin Khandare"
+date: "September 21, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Question 2. Perform sentiment analysis on horror movie 'The Nun' using the comments posted on official twitter page (@thenunmovie) as follow: 
+
+#a. Top ten tweets both positive and negative. 
+#b. Do the topic modelling (5 topics) to identity top 10 words and top 10 documents for each topic.
+
+
+# Scrapping tweets from twitter
+# library required
+```{r}
+
+
+
+#install.packages("httr")
+library(twitteR)
+library(ROAuth)
+library(RCurl)
+library(dplyr)
+library(httr)
+```
+
+
+### Twitter Data Scrpping Code to Scrape the NUN movies Tweets
+```{r}
+# Connecting to twitter
+  Consumer_Key<- "ZgcLCY7gXvceLMNEWXVxyJ5eU"
+
+  Consumer_Secret<-"dIbEpvjvnwCk5G3vjsPe2dU82ME61Oea4TkFbskWosz9RfwBoi"
+
+  Access_Token<-"963459429797576704-ZRr2es1Afh5ksgaIYzzu5Yu3K8YGXrz"
+
+  Access_Secret<-"Hdoveqf3D69vJJCuGRc0dkrFa1uCy459BXiLmIdI0Mg99"
+```
+
+### Scrapping The Tweets Data
+```{r}
+  setup_twitter_oauth(Consumer_Key,Consumer_Secret,Access_Token,Access_Secret)
+
+# Getting tweets with hashtage name
+
+ gst=searchTwitter("@thenunmovie",n=150,lang="en")
+
+  class(gst)
+
+  tweets = twListToDF(gst)
+
+
+```
+
+
+### Topic Modeling On The NUM movies Tweets
+```{r}
+library(tm)
+library(pdftools)
+library(dplyr)
+library(ggplot2)
+library(tidytext)
+library(plyr)
+library(tidyr)
+library(topicmodels)
+
+```
+
+
+### Read the Data tweet_nun_2.csv file
+```{r}
+tweets = read.csv("E:/Term 3/Unstructure Data/AssignmentNo.2/tweet_nun_2.csv")
+```
+
+
+###  Selecting only words from the file.
+```{r}
+tweet = gsub("[^A-Za-z///']", " ", tweets$text)
+```
+
+### Creating the corpus
+```{r}
+
+doc = Corpus(VectorSource(tweet))
+
+```
+
+### Removing Stop words and punctuations, removeNumbers, stripWhitespace. etc
+```{r}
+
+doc = tm_map(doc, removeNumbers)
+
+doc = tm_map(doc, content_transformer(tolower))
+
+doc = tm_map(doc, removePunctuation)
+
+doc = tm_map(doc, removeWords, stopwords("english"))
+
+doc = tm_map(doc, stripWhitespace)
+
+dtm = DocumentTermMatrix(doc)
+
+dim(dtm)
+```
+
+
+#### ROw Sum The Dimention
+```{r}
+
+rowTotal = apply(dtm, 1, sum)
+dtm.new = dtm[rowTotal>0,]
+
+dim(dtm.new)
+
+```
+
+
+### LDA to create K=4, Four topic with Gibbs method
+```{r}
+lda = LDA(dtm.new, k = 4, method = "Gibbs", control = list(seed = 1234))
+```
+
+
+## Using tidy library to see the top 10 word of each topic
+```{R}
+topics = tidy(lda, matrix = 'beta')
+```
+
+
+### topic Probabilities
+```{r}
+topicProbabilities = as.data.frame(lda@gamma)
+```
+
+### Subset the topics and arrange topic in descending order
+```{r}
+
+ap_top_terms <- topics %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+```
+
+
+### plot the four topics based on words(term)
+```{r}
+
+ap_top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+
+```
+
+
+####  To constrain it to a set of especially relevant words, we can filter for relatively common words, such as those that have a ?? greater than 1/1000 in at least one topic.
+```{r}
+
+beta_spread <- topics %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  spread(topic, beta) %>%
+  filter(topic1 > .001 | topic2 > .001) %>%
+  mutate(log_ratio = log2(topic2 / topic1))
+
+beta_spread
+```
+
+
+### The words with the greatest differences between the two topics are visualized in Figure
+```{r}
+
+ggplot(beta_spread, aes(x = term, y = 
+log_ratio)) + geom_bar(stat = 'identity')
+```
+
+## chapters gamma 
+```{r}
+chapters_gamma <- tidy(lda, matrix = "gamma")
+chapters_gamma
+```
+
+
+```{r}
+chapters_gamma <- chapters_gamma %>%
+  separate(document, c("title", "chapter"), sep = "_", convert = TRUE)
+
+chapters_gamma
+```
+
+
+
+
